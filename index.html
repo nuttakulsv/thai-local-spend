@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ภาษีบ้านฉันไปไหน</title>
+<meta name="description" content="ดูว่าหน่วยงานรัฐในอำเภอของคุณจ้างอะไร จ้างใคร เท่าไหร่ จากข้อมูลจัดซื้อจัดจ้างภาครัฐ (e-GP)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" integrity="sha384-c6Rcwz4e4CITMbu/NBmnNS8yN2sC3cUElMEMfP3vqqKFp7GOYaaBBCqmaWBjmkjb" crossorigin="anonymous">
+<style>
+:root {
+  --bg: #f6f3ec; --paper: #fffdf8; --ink: #1d1b16; --muted: #6b665b; --line: #e3ddd0;
+  --accent: #b4441f; --accent-soft: #f4e2d9; --bar1: #b4441f; --bar2: #2f6f6a; --bar3: #c79a2b; --bar4: #8a8478;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #15140f; --paper: #1e1c17; --ink: #efe9dc; --muted: #a39d90; --line: #343127;
+    --accent: #e6774f; --accent-soft: #3a261d; --bar1: #e6774f; --bar2: #5fb3aa; --bar3: #e0b84f; --bar4: #8f897c; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.55 "IBM Plex Sans Thai", system-ui, sans-serif; }
+a { color: var(--accent); }
+header, main, footer { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
+header { padding-top: 28px; }
+h1 { font-size: clamp(28px, 5vw, 44px); line-height: 1.15; margin: 0 0 6px; letter-spacing: -0.01em; }
+.lede { color: var(--muted); margin: 0 0 18px; max-width: 46em; }
+.pick { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 8px; }
+select, input[type=search] { font: inherit; color: var(--ink); background: var(--paper); border: 1px solid var(--line);
+  border-radius: 8px; padding: 9px 12px; min-width: 0; }
+select { flex: 1 1 200px; }
+.crumbs { color: var(--muted); font-size: 14px; margin: 6px 0 18px; }
+.crumbs a { text-decoration: none; }
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 16px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.stat b { display: block; font-size: 26px; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: 14px; }
+h2 { font-size: 19px; margin: 0 0 12px; }
+.mix { display: flex; height: 14px; border-radius: 7px; overflow: hidden; margin: 14px 0 8px; background: var(--line); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
+.rank { list-style: none; margin: 0; padding: 0; }
+.rank li { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); cursor: pointer; }
+.rank li:first-child { border-top: 0; }
+.rank li:hover .nm, .rank li.on .nm { color: var(--accent); }
+.rank .nm { overflow-wrap: anywhere; }
+.rank .v { font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+.rank .barline { grid-column: 1 / -1; height: 3px; background: var(--accent-soft); border-radius: 2px; }
+.rank .barline div { height: 3px; background: var(--accent); border-radius: 2px; }
+#map { height: 360px; border-radius: 12px; border: 1px solid var(--line); margin-bottom: 16px; }
+.tools { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.tools input { flex: 1 1 240px; }
+.chip { font-size: 14px; background: var(--accent-soft); color: var(--ink); border: 0; border-radius: 999px; padding: 5px 12px; cursor: pointer; }
+.item { padding: 12px 0; border-top: 1px solid var(--line); }
+.item:first-child { border-top: 0; }
+.item .top { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.item .amt { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.item .meta { color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+.tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--line); color: var(--ink); margin-right: 6px; }
+.more { display: block; margin: 12px auto 0; font: inherit; background: none; border: 1px solid var(--line); color: var(--ink);
+  border-radius: 8px; padding: 8px 18px; cursor: pointer; }
+.list-areas { columns: 3 220px; column-gap: 24px; }
+.list-areas a { display: flex; justify-content: space-between; gap: 8px; break-inside: avoid; padding: 6px 0;
+  border-bottom: 1px solid var(--line); text-decoration: none; color: var(--ink); }
+.list-areas a span { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.note { color: var(--muted); font-size: 14px; }
+footer { color: var(--muted); font-size: 14px; padding-bottom: 40px; }
+.leaflet-container { font: inherit; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ภาษีบ้านฉันไปไหน</h1>
+  <p class="lede">เลือกจังหวัดกับอำเภอ แล้วดูว่าหน่วยงานรัฐในพื้นที่ อบต. เทศบาล โรงเรียน โรงพยาบาล จ้างอะไร จ้างใคร เท่าไหร่ จากข้อมูลจัดซื้อจัดจ้างภาครัฐ (e-GP) ของกรมบัญชีกลาง</p>
+  <div class="pick">
+    <select id="prov" aria-label="จังหวัด"><option value="">ทุกจังหวัด</option></select>
+    <select id="dist" aria-label="อำเภอ" disabled><option value="">เลือกอำเภอ</option></select>
+  </div>
+  <div class="crumbs" id="crumbs"></div>
+</header>
+<main id="main"><p class="note">กำลังโหลด...</p></main>
+<footer>
+  <p id="about"></p>
+  <p>ข้อมูลจัดซื้อจัดจ้างจากระบบ e-GP ของกรมบัญชีกลาง เผยแพร่โดยสำนักงานพัฒนารัฐบาลดิจิทัลบน <a href="https://data.go.th">data.go.th</a> (Creative Commons Attribution) ·
+  ทำด้วย <a href="https://github.com/nuttakulsv/thai-egp">thai-egp</a> · <a href="https://github.com/nuttakulsv/thai-local-spend">โค้ดและวิธีทำ</a></p>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" integrity="sha384-NElt3Op+9NBMCYaef5HxeJmU4Xeard/Lku8ek6hoPTvYkQPh3zLIrJP7KiRocsxO" crossorigin="anonymous"></script>
+<script>
+"use strict";
+const KIND = {
+  ebidding: ["ประกวดราคา (e-bidding)", "--bar2"], emarket: ["e-market", "--bar3"], selection: ["คัดเลือก", "--bar4"],
+  specific: ["เฉพาะเจาะจง", "--bar1"], price_agreement: ["ตกลงราคา", "--bar1"], price_quotation: ["สอบราคา", "--bar4"],
+  special: ["วิธีพิเศษ", "--bar4"], open: ["ประกาศเชิญชวน", "--bar4"], other: ["อื่นๆ", "--bar4"], "": ["ไม่ระบุ", "--bar4"],
+};
+const $ = (s) => document.querySelector(s);
+const th = (a, b) => a.localeCompare(b, "th");
+const money = (n) => n >= 1e9 ? (n / 1e9).toLocaleString("th-TH", { maximumFractionDigits: 2 }) + " พันล้าน"
+  : n >= 1e6 ? (n / 1e6).toLocaleString("th-TH", { maximumFractionDigits: 1 }) + " ล้าน"
+  : Math.round(n).toLocaleString("th-TH");
+const thaiDate = (iso) => iso ? new Date(iso + "T00:00:00").toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" }) : "";
+
+function el(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else if (k === "style") e.style.cssText = v; else e.setAttribute(k, v);
+  }
+  for (const k of kids.flat()) if (k != null && k !== false) e.append(k.nodeType ? k : String(k));
+  return e;
+}
+
+let INDEX, map;
+const cache = new Map();
+
+async function load(path) {
+  if (!cache.has(path)) cache.set(path, fetch("data/" + path).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }));
+  return cache.get(path);
+}
+
+function route() {
+  const [p = "", d = ""] = decodeURIComponent(location.hash.slice(1)).split("/").filter(Boolean).concat([]);
+  return { p: INDEX.provinces[p] ? p : "", d: INDEX.provinces[p] && INDEX.provinces[p][d] ? d : "" };
+}
+const go = (p, d) => { location.hash = [p, d].filter(Boolean).map(encodeURIComponent).join("/"); };
+
+function fillSelects(r) {
+  const prov = $("#prov"), dist = $("#dist");
+  if (prov.options.length === 1) {
+    for (const p of Object.keys(INDEX.provinces).sort(th)) prov.append(el("option", { value: p }, p));
+  }
+  prov.value = r.p;
+  dist.replaceChildren(el("option", { value: "" }, r.p ? "ทุกอำเภอ" : "เลือกอำเภอ"));
+  dist.disabled = !r.p;
+  if (r.p) for (const d of Object.keys(INDEX.provinces[r.p]).sort(th)) dist.append(el("option", { value: d }, d));
+  dist.value = r.d;
+  const c = $("#crumbs");
+  c.replaceChildren(el("a", { href: "#" }, "ทั้งประเทศ"));
+  if (r.p) c.append(" › ", el("a", { href: "#" + encodeURIComponent(r.p) }, r.p));
+  if (r.d) c.append(" › ", r.d);
+}
+
+function areaList(entries, onPick) {
+  const sorted = entries.sort((a, b) => b[1][1] - a[1][1]);
+  return el("div", { class: "list-areas" }, sorted.map(([name, v]) =>
+    el("a", { href: "#", onclick: (e) => { e.preventDefault(); onPick(name); } }, name, el("span", {}, money(v[1])))));
+}
+
+function viewCountry() {
+  const rows = Object.entries(INDEX.provinces).map(([p, ds]) => {
+    const v = Object.values(ds);
+    return [p, [v.reduce((s, x) => s + x[0], 0), v.reduce((s, x) => s + x[1], 0)]];
+  });
+  const n = rows.reduce((s, r) => s + r[1][0], 0), b = rows.reduce((s, r) => s + r[1][1], 0);
+  return [
+    el("div", { class: "card stats" },
+      el("div", { class: "stat" }, el("b", {}, money(b)), el("span", {}, "บาท ทั้งประเทศ")),
+      el("div", { class: "stat" }, el("b", {}, n.toLocaleString("th-TH")), el("span", {}, "สัญญา")),
+      el("div", { class: "stat" }, el("b", {}, rows.length), el("span", {}, "จังหวัด"))),
+    el("div", { class: "card" }, el("h2", {}, "เลือกจังหวัด"),
+      el("p", { class: "note" }, "ตัวเลขนับตามที่ตั้งของหน่วยงาน กรุงเทพฯ จึงสูงมาก เพราะกระทรวงและกรมส่วนใหญ่ตั้งอยู่ที่นั่น"),
+      areaList(rows, (p) => go(p))),
+  ];
+}
+
+function viewProvince(p) {
+  const rows = Object.entries(INDEX.provinces[p]);
+  const n = rows.reduce((s, r) => s + r[1][0], 0), b = rows.reduce((s, r) => s + r[1][1], 0);
+  return [
+    el("div", { class: "card stats" },
+      el("div", { class: "stat" }, el("b", {}, money(b)), el("span", {}, "บาท ใน" + p)),
+      el("div", { class: "stat" }, el("b", {}, n.toLocaleString("th-TH")), el("span", {}, "สัญญา")),
+      el("div", { class: "stat" }, el("b", {}, rows.length), el("span", {}, "อำเภอ / เขต"))),
+    el("div", { class: "card" }, el("h2", {}, "เลือกอำเภอ"), areaList(rows, (d) => go(p, d))),
+  ];
+}
+
+function rank(title, pairs, total, selected, onPick) {
+  const max = pairs.length ? pairs[0][1] : 1;
+  return el("div", { class: "card" }, el("h2", {}, title),
+    el("ol", { class: "rank" }, pairs.slice(0, 10).map(([name, v, n]) =>
+      el("li", { class: name === selected ? "on" : "", onclick: () => onPick(name) },
+        el("span", { class: "nm" }, name), el("span", { class: "v" }, money(v) + " · " + n + " สัญญา"),
+        el("div", { class: "barline" }, el("div", { style: `width:${(v / max) * 100}%` }))))),
+    pairs.length ? null : el("p", { class: "note" }, "ไม่มีข้อมูล"),
+    total ? el("p", { class: "note" }, total) : null);
+}
+
+function group(rows, idx) {
+  const m = new Map();
+  for (const r of rows) { const k = r[idx]; const v = m.get(k) || [0, 0]; v[0] += r[4]; v[1]++; m.set(k, v); }
+  return [...m].map(([k, v]) => [k, v[0], v[1]]).sort((a, b) => b[1] - a[1]);
+}
+
+async function viewDistrict(p, d) {
+  const main = $("#main");
+  const data = await load(INDEX.provinces[p][d][2] + ".json");
+  const all = data.rows.map((r) => [r[0], r[1], data.units[r[2]], r[3], r[4], r[5], data.winners[r[6]], r[7], r[8], r[9]]);
+  const state = { q: "", unit: "", winner: "", shown: 30 };
+
+  const stats = el("div", { class: "card" });
+  const units = el("div"), winners = el("div");
+  const list = el("div", { class: "card" });
+  const search = el("input", { type: "search", placeholder: "ค้นชื่อโครงการ หน่วยงาน หรือผู้ชนะ", "aria-label": "ค้นหา" });
+  const chips = el("span");
+  const mapBox = el("div", { id: "map" });
+
+  function filtered() {
+    const q = state.q.trim();
+    return all.filter((r) => (!state.unit || r[2] === state.unit) && (!state.winner || r[6] === state.winner) &&
+      (!q || r[1].includes(q) || r[2].includes(q) || r[6].includes(q) || r[0] === q));
+  }
+
+  function render() {
+    const rows = filtered();
+    const total = rows.reduce((s, r) => s + r[4], 0);
+    const kinds = group(rows, 3);
+    const mix = el("div", { class: "mix" }, kinds.map(([k, v]) =>
+      el("div", { title: (KIND[k] || KIND.other)[0], style: `width:${(v / (total || 1)) * 100}%;background:var(${(KIND[k] || KIND.other)[1]})` })));
+    const legend = el("div", { class: "legend" }, kinds.map(([k, v]) =>
+      el("span", {}, el("i", { style: `background:var(${(KIND[k] || KIND.other)[1]})` }),
+        (KIND[k] || KIND.other)[0] + " " + Math.round((v / (total || 1)) * 100) + "%")));
+    stats.replaceChildren(
+      el("div", { class: "stats" },
+        el("div", { class: "stat" }, el("b", {}, money(total)), el("span", {}, "บาท")),
+        el("div", { class: "stat" }, el("b", {}, rows.length.toLocaleString("th-TH")), el("span", {}, "สัญญา")),
+        el("div", { class: "stat" }, el("b", {}, new Set(rows.map((r) => r[2])).size), el("span", {}, "หน่วยงาน"))),
+      mix, legend);
+
+    const pickUnit = (u) => { state.unit = state.unit === u ? "" : u; state.shown = 30; render(); };
+    const pickWinner = (w) => { state.winner = state.winner === w ? "" : w; state.shown = 30; render(); };
+    units.replaceChildren(rank("หน่วยงานที่จ้างมากที่สุด", group(rows, 2), "", state.unit, pickUnit));
+    const ws = group(rows, 6);
+    const people = ws.find((w) => w[0] === "");
+    winners.replaceChildren(rank("ผู้รับจ้างที่ได้เงินมากที่สุด", ws.filter((w) => w[0] !== ""),
+      people ? `ไม่รวมผู้รับจ้างที่ไม่แสดงชื่อ ${people[2]} สัญญา ${money(people[1])} บาท` : "", state.winner, pickWinner));
+
+    chips.replaceChildren(...[["unit", state.unit], ["winner", state.winner]].filter((x) => x[1]).map(([k, v]) =>
+      el("button", { class: "chip", onclick: () => { state[k] = ""; render(); } }, v + " ✕")));
+
+    list.replaceChildren(el("div", { class: "tools" }, search, chips),
+      ...rows.slice(0, state.shown).map((r) => el("div", { class: "item" },
+        el("div", { class: "top" }, el("div", {}, r[1]), el("div", { class: "amt" }, money(r[4]))),
+        el("div", { class: "meta" }, el("span", { class: "tag" }, (KIND[r[3]] || KIND.other)[0]),
+          r[2], " → ", r[6] || "ไม่แสดงชื่อ", r[7] ? " · " + thaiDate(r[7]) : "",
+          r[5] ? " · ราคากลาง " + money(r[5]) : "", " · ", r[0]))),
+      rows.length > state.shown ? el("button", { class: "more", onclick: () => { state.shown += 50; render(); } },
+        `ดูเพิ่ม (เหลืออีก ${(rows.length - state.shown).toLocaleString("th-TH")})`) : null,
+      rows.length ? null : el("p", { class: "note" }, "ไม่พบสัญญาที่ตรงกับคำค้น"));
+    drawMap(rows);
+  }
+
+  function drawMap(rows) {
+    const pts = rows.filter((r) => r[8] != null && r[9] != null).slice(0, 2000);
+    mapBox.style.display = pts.length ? "" : "none";
+    if (!pts.length || !window.L) return;
+    if (!map) {
+      map = L.map(mapBox, { scrollWheelZoom: false });
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        { maxZoom: 18, attribution: "© OpenStreetMap contributors" }).addTo(map);
+    }
+    if (map._group) map._group.remove();
+    map._group = L.featureGroup(pts.map((r) => L.circleMarker([r[8], r[9]], { radius: 6, weight: 1, color: "#b4441f", fillOpacity: 0.6 })
+      .bindPopup(() => el("div", {}, el("b", {}, money(r[4]) + " บาท"), el("br"), r[1], el("br"), r[2])))).addTo(map);
+    map.fitBounds(map._group.getBounds(), { maxZoom: 13, padding: [20, 20] });
+  }
+
+  let t;
+  search.addEventListener("input", () => { clearTimeout(t); t = setTimeout(() => { state.q = search.value; state.shown = 30; render(); search.focus(); }, 200); });
+  map = null;
+  main.replaceChildren(stats, mapBox, el("div", { class: "two" }, units, winners), list,
+    el("p", { class: "note" }, "แผนที่แสดงเฉพาะโครงการที่หน่วยงานระบุพิกัด ซึ่งอาจอยู่นอกอำเภอนี้ได้ เช่น ถนนที่หน่วยงานในอำเภอนี้เป็นผู้จ้าง"));
+  render();
+}
+
+async function show() {
+  const r = route();
+  fillSelects(r);
+  const main = $("#main");
+  document.title = (r.d ? r.d + ", " : "") + (r.p ? r.p + " · " : "") + "ภาษีบ้านฉันไปไหน";
+  try {
+    if (r.d) await viewDistrict(r.p, r.d);
+    else main.replaceChildren(...(r.p ? viewProvince(r.p) : viewCountry()));
+  } catch (e) {
+    main.replaceChildren(el("p", { class: "note" }, "โหลดข้อมูลไม่สำเร็จ ลองรีเฟรชอีกครั้ง"));
+  }
+  window.scrollTo({ top: 0 });
+}
+
+$("#prov").addEventListener("change", (e) => go(e.target.value));
+$("#dist").addEventListener("change", (e) => go($("#prov").value, e.target.value));
+window.addEventListener("hashchange", show);
+
+load("index.json").then((idx) => {
+  INDEX = idx;
+  const y = idx.years.join(", ");
+  $("#about").textContent = `ปีงบประมาณ ${y} · เฉพาะสัญญาตั้งแต่ ${idx.min_baht.toLocaleString("th-TH")} บาท · ` +
+    "จัดกลุ่มตามที่ตั้งของหน่วยงานที่จ้าง ไม่ใช่ที่ตั้งโครงการ · ผู้รับจ้างที่เป็นบุคคลธรรมดาไม่แสดงชื่อ";
+  show();
+}).catch(() => { $("#main").replaceChildren(el("p", { class: "note" }, "โหลดข้อมูลไม่สำเร็จ")); });
+</script>
+</body>
+</html>
